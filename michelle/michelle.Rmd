@@ -18,9 +18,9 @@ instalar <- function(paquete) {
     }
 }
 
-paquetes <- c('tidyr', 'dplyr', 'ggplot2')
+paquetes <- c('magrittr', 'dplyr', 'ggplot2', 'reshape2')
 
-#paquetes <- c('lubridate', 'magrittr', 'ggvis', 'dplyr', 'tidyr', 'readr', 'rvest', 
+#paquetes <- c('tidyr', 'lubridate', , 'ggvis', 'dplyr', 'tidyr', 'readr', 'rvest', 
 #              , 'stringr', 'ggthemes', 'googleVis', 'shiny', 'tibble', 'vcd', 'vcdExtra', 
 #              'GGally', 'readODS', 'readxl', "RSQLite", 'extracat', 'gridExtra', 'outliers')
 
@@ -29,7 +29,7 @@ lapply(paquetes, instalar)
 ```
 
 ```{r}
-train <- read.csv('./data/train.csv')
+train <- read.csv('../data/train.csv')
 class(train)
 str(train)
 ```
@@ -39,13 +39,81 @@ train$TripType <- as.factor(train$TripType)
 train$VisitNumber <- as.factor(train$VisitNumber)
 train$Upc <- as.factor(train$Upc)
 train$FinelineNumber <- as.factor(train$FinelineNumber)
+head(train)
+```
+
+Cuántos artículos se compran por visita?
+
+```{r}
+articles_per_visit <- train %>% 
+  select(VisitNumber, TripType, Weekday) %>% 
+  group_by(VisitNumber, TripType, Weekday) %>% 
+  summarize(num_articles = n())
+
+summary(articles_per_visit$num_articles)
+
+articles_per_visit %>% 
+  ggplot(aes(x=num_articles)) + geom_histogram()
+```
+
+Cuántos artículos se compran por visita por TripType?
+
+```{r}
+articles_per_visit %>%
+  ggplot(aes(x = TripType, y = num_articles)) +
+  geom_boxplot() +
+  coord_flip() +
+  ggtitle("TripType vs num_articles")
+```
+
+Cuántos artículos se compran por visita por Weekday?
+
+```{r}
+articles_per_visit %>%
+  ggplot(aes(x = Weekday, y = num_articles)) +
+  geom_boxplot() +
+  ggtitle("Weekday vs num_articles")
+```
+
+Cuántos TripTypes ocurren por Weekday?
+
+```{r}
+tt <- table(articles_per_visit$TripType, articles_per_visit$Weekday)
+tt_Weekday <- tt / apply(tt, 2, sum)
+tt_Weekday
 ```
 
 ```{r}
-train %>% 
-  select(TripType, VisitNumber)
+tt <- table(articles_per_visit$Weekday, articles_per_visit$TripType)
+tt_Weekday <- tt / apply(tt, 1, sum)
+tt_Weekday
 ```
 
+```{r}
+tt_Weekday <- melt(tt_Weekday)
+colnames(tt_Weekday) <- c('Weekday', 'TripType', 'pct')
+head(tt_Weekday)
+```
+
+```{r}
+ggplot(tt_Weekday, aes(x = Weekday, y = as.factor(TripType), fill = pct)) + 
+  geom_raster()
+```
+
+```{r}
+tt <- table(articles_per_visit$TripType, articles_per_visit$Weekday)
+tt_TripType <- tt / apply(tt, 1, sum)
+tt_TripType
+```
+tt_Weekday <- melt(tt_Weekday)
+colnames(tt_Weekday) <- c('Weekday', 'TripType', 'pct')
+head(tt_Weekday)
+```
+
+```{r}
+ggplot(tt_Triptype, aes(x = Weekday, y = as.factor(TripType), fill = pct)) + 
+  geom_raster()
+```
 
 ```{r}
 levels(train$TripType)
