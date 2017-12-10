@@ -1,0 +1,167 @@
+---
+title: "Examen Parcial Estadistica computacional"
+author: "Eduardo Hidalgo 117036 & Bernardo Garcia 130901"
+date: "October 5, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MCMCpack)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(lsr)
+library(bootstrap)
+```
+
+# Ejercicio 1 "Relación entre boostrap e inferencia bayesiana"
+
+## 1.1 Boostrap Parametrico
+
+### Escribe la función de verosimilitud
+
+<p> De la definición de la distribución posterior bayesiana se tiene : </p>
+
+$$P(\vec(\theta)|x)=\frac{P(x|\theta)P(\theta)}{P(x)}$$
+
+<p> donde: </p>
+
+<p>$P(\theta|\vec(x))$ : es la **distribución posterior bayesiana** del parametro $\theta$ </p>
+<p>$P(\theta)$ : es la **función de verosimilitud** del parámetro $\theta$ </p>
+<p>$P(\theta)$ : es la **distribución apriori**  que resume nuestras crrencias iniciales del parametro </p>
+<p>$P(x)$ : es la **evidencia** o verosimilitud marginal o inicial predictiva </p> 
+
+<p>En el contexto de la pregunta del exámen sabemos que: </p>
+
+$$P(x|\theta)=\prod_{i=1}^{n}f(x_{i}|\theta) =\prod_{i=1}^{n}\frac{1}{\sqrt{2\pi\sigma^{2}}}e^{-\frac{x_{i}^{2}}{2\sigma^{2}}}$$
+<p>Ya que $x_{i} \sim N(0,\sigma^{2}),\forall i \in [1,n]$ </p>
+
+<p> Para encontrar el estimador de máxima verosimilitud basta con encontrar el argumento que maximiza la función de máxima verosimilitud</p>
+
+<p> Sin embargo, para facilitar la exposición algebraica, generalmente se resuelve dicho problema aplicando una transformación monotónica a la función de verosimilitud como el $ln$. Por lo que la función de log verosimilutd se define como : </p>
+
+$$ln(P(x|\theta))=ln(\prod_{i=1}^{n}\frac{1}{\sqrt{2\pi\sigma^{2}}}e^{-\frac{x_{i}^{2}}{2\sigma^{2}}})$$
+$$=\sum_{i=1}^{n}ln(\frac{1}{\sqrt{2\pi\sigma^{2}}}e^{-\frac{x_{i}^{2}}{2\sigma^{2}}})$$
+$$=\sum_{i=1}^{n}[ln(1)-\frac{1}{2}ln(2\pi)-\frac{1}{2}ln\sigma^{2}-\frac{x_{i}^{2}}{2\sigma^{2}}]$$
+
+<p>Y por tanto el  estimador de maxima verosimilitud se define como : </p>
+
+$$argmax_{\sigma{2}}\sum_{i=1}^{n}[ln(1)-\frac{1}{2}ln(2\pi)-\frac{1}{2}ln\sigma^{2}-\frac{x_{i}^{2}}{2\sigma^{2}}]$$
+
+<p>De la C.P.O se tiene : </p>
+
+$$[\sigma^{2}] : \sum_{i=1}^{n}[-\frac{1}{2}\frac{1}{\sigma^{2}}+\frac{x_{i}}{2(\sigma^{2})^{2}}]=0$$
+
+$$\Rightarrow  \sum_{i=1}^{n}[\frac{1}{2\sigma^{2}}]=\sum_{i=1}^{n}[\frac{x_{i}^{2}}{(\sigma^{2})^{2}}]$$
+
+
+$$\Rightarrow \sum_{i=1}^{n}\sigma^{2}=\sum_{i=1}^{n}x_{i}^{2}$$
+
+$$\Rightarrow \sigma_{MV}^{2}=\frac{\sum_{i=1}^{n}x_{i}^{2}}{n}$$
+
+### Estimación de la varianza usando los datos **x** y el resultado anterior : </p>
+
+```{r,echo=FALSE}
+
+load("~/Estadistica Computacion Leon Berdechevski/Examen Final/x.RData")
+
+y<-as.data.frame(x)
+Estimador_Varianza<-y%>%summarise(SigmaMV=sqrt(sum(x**2)/n())**2,FuncionR=sd(x)**2)
+Estimador_Varianza
+```
+
+
+
+<p>La comparación de **SigmaMV** con **FuncionR** permite ver que probablemente dplyr esta utilizando para el calculo al estimador **insesgado** de sigma $\sigma_{MV}^{2}=\frac{\sum_{i=1}^{n}x_{i}^{2}}{n-1}$</p>
+
+
+###Aproximación de la varianza de sigma cuadrada por el método bootstrap
+
+<p>Método Bootstrap : </p>
+
+```{r,echo=FALSE}
+VarBoostrap<-function(x){
+  #x Columna numerica de interes
+  #n Numero de elementos de la muestra original
+  n<-length(x)
+  #Generamos la muestra Bootstrap
+  MuestraBootstrap<-sample(x,size=n,replace=TRUE)
+  sigma_boot<-(1/n)*sum(MuestraBootstrap**2)
+
+}
+
+thetas_Bootstrap<-rerun(500,VarBoostrap(y$x))%>%flatten_dbl()
+
+print('Media de la varianza de las replicaciones Boostrap')
+mean(thetas_Bootstrap)
+print('Desv Estd. de la varianza de las Replicaciones Boostrap')
+sd(thetas_Bootstrap)
+print('Varianza de la varianza de las Replicaciones Boostrap')
+sd(thetas_Bootstrap)**2
+
+```
+
+
+```{r,echo=FALSE}
+thetas_Bootstrap<-as.data.frame(thetas_Bootstrap)
+q<-ggplot(data=thetas_Bootstrap, aes(thetas_Bootstrap)) + 
+  geom_histogram(aes(), 
+                #breaks=seq(-5, 5, by = 2), 
+                 col="red", 
+                 fill="green")
+q+scale_y_continuous(labels = scales::comma)+ ggtitle(expression(atop("Numero de de ocurrencias de la varianza de sigma ", atop(italic("Replicaciones Boostrap de x"), ""))))+scale_x_continuous(labels = scales::comma)
+```
+
+## Análisis Bayesiano
+
+### Inferencia Bayesiana sobre $\sigma^{2}$, selección de distribución inicial Gamma Inversa y grafica de la densidad
+
+<p>La distribución inicial que se elige para este tipo de casos (donde $x \sim N(\mu,\sigma^{2})$ y se conoce $\mu$ pero se trata de estimar la probabilidad posterior de $\sigma^{2}$)) es la Gamma Inversa, por las siguientes razones: 
+
+* <p>La inicial Gamma Inversa con verosimilitud Normal es una familia Conjungada (por lo que es posible llegar a una distribución posterior cerrada)</p>
+* <p>El soporte de la Gamma Inversa es $x \in \Re^{+}$ por lo que coincide con el rango de valores que puede tomar $\sigma^{2}$</p>
+
+
+<p>En el contexto del ejercicio en el exámen final, conocemos de la distribución postulada a priori tanto la media  $\mu$ como la estimación puntual hecha previamente de la varianza $\sigma^{2}$ (ambas estimaciones bootstrap). Por lo que para encontrar los valores para los parámetros $\alpha$ y $\theta$ es necesario resolver el siguiente sistema de ecuaciones  </p> 
+
+$$ \mu_{sigma^{2}}=131.44=\frac{\beta}{\alpha-1}$$
+<p>y</p>
+$$\sigma_{sigma^{2}}^{2}=189.04=\frac{\beta^{2}}{(\alpha-1)^{2}(\alpha-2)^{2}}$$
+<p>Por lo que de la primera se consigue una relación entre $\beta$ y $\alpha$ </p>
+
+$$\Rightarrow 131.44(\alpha-1)=\beta$$
+<p> y al sustituir en dos se encuentra que : </p>
+
+$$189.04=\frac{131.44^{2}(\alpha-1)^{2}}{(\alpha-1)^{2}(\alpha-2)}$$
+$$ \Rightarrow \alpha = \frac{131.44^{2}}{189.04}+2=93.34$$
+<p>Por último, basta con insertar el valor de $\alpha$ en la relación que encontramos : </p>
+$$ \beta=131.44(92.39)=12,144$$
+
+
+
+```{r,}
+#Aqui se especifica la funcion gama inversa
+x_gamma<-rgamma(2000,shape=93.34,rate=12144)
+x_igamma<-1/x_gamma
+
+
+
+GammaInv<-stat_function(fun = dinvgamma, args = list(shape = 93.34, scale = 12144))
+x_igamma<-as.data.frame(x_igamma)
+```
+
+
+
+
+```{r,echo=FALSE}
+
+
+#Graficamos un Histograma de la Muestra
+ggplot(x_igamma, aes(x = x_igamma)) +
+  geom_histogram(aes(y = ..density..), binwidth = .8, fill = "gray") + 
+  stat_function(fun = dinvgamma, args = list(shape = 93.34, scale = 12144), 
+                color = "red")+xlab("Output Gamma Inversa")+ ggtitle(expression(atop("Densidad de la distribución a priori de sigma cuadrada", atop(italic("Captura las creencias iniciales sobre la distribucion de sigma cuadrada"), ""))))
+
+```
+
