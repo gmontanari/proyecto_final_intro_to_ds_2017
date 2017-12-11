@@ -1,0 +1,312 @@
+---
+title: "Proyecto Final (parte 3)"
+author: "Michelle Audirac"
+date: "12/10/2017"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+instalar <- function(paquete) {
+
+    if (!require(paquete,character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)) {
+        install.packages(as.character(paquete), dependecies = TRUE, repos = "http://cran.us.r-project.org")
+        library(paquete, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+    }
+}
+
+paquetes <- c('dplyr', 'ggplot2', 'reshape2')
+
+#paquetes <- c('tidyr', 'lubridate', , 'ggvis', 'dplyr', 'tidyr', 'readr', 'rvest', 
+#              , 'stringr', 'ggthemes', 'googleVis', 'shiny', 'tibble', 'vcd', 'vcdExtra', 
+#              'GGally', 'readODS', 'readxl', "RSQLite", 'extracat', 'gridExtra', 'outliers')
+
+lapply(paquetes, instalar)
+
+```
+
+```{r}
+total <- readRDS('../data/total_prep.RDS')
+train <- readRDS('../data/train_prep.RDS')
+test <- readRDS('../data/test_prep.RDS')
+```
+
+## Exploración multivariada
+
+En esta sección hacemos la exploración multivariada de los datasets.
+
+### Visit Number + ScanCount
+
+**total_Visits**
+
+```{r}
+total_Visits <- total %>% 
+  select(VisitNumber, Weekday, ScanCount) %>% 
+  group_by(VisitNumber, Weekday) %>% 
+  summarize(VisitRows = n(), VisitItems = sum(ScanCount))
+```
+
+* Cuál es el resumen del número de items comprados por `VisitNumber` en el dataset `total`?
+
+```{r}
+summary(total_Visits$VisitItems)
+```
+
+<!-- ```{r} -->
+<!-- ggplot(total_Visits, aes(x = 'count', y = VisitItems)) + -->
+<!--   geom_boxplot(colour = 'grey', fill = 'lightblue', alpha = 0.7) + -->
+<!--   coord_flip() -->
+<!-- ``` -->
+
+### VisitNumber + ScanCode + Weekday
+
+* Cuántas visitas hay por `Weekday` en el dataset `total`?
+
+```{r}
+table(total_Visits$Weekday)
+```
+
+```{r}
+total_Visits %>% 
+  ggplot(aes(Weekday, fill = Weekday)) +
+  geom_bar(colour = 'grey', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  labs(title = "numero de visitas por Weekday", x = "Weekday", y = "count") + 
+  coord_flip()
+```
+
+<!-- * Cuántos observaciones hay por visita por `Weekday` en el dataset `total`? -->
+
+<!-- Filtramos aquellas visitas con más de 125 observaciones. -->
+
+<!-- ```{r} -->
+<!-- total_Visits %>% -->
+<!--   filter(VisitRows < 125) %>% -->
+<!--   ggplot(aes(x = Weekday, y = VisitRows)) + -->
+<!--   geom_boxplot() + -->
+<!--   ggtitle("Weekday vs VisitRows") -->
+<!-- ``` -->
+
+* Cuántos items se compran por visita por `Weekday` en el dataset `total`?
+
+Filtramos aquellas visitas con más de 125 items.
+
+```{r}
+total_Visits %>%
+  filter(VisitItems < 125) %>%
+  ggplot(aes(x = Weekday, y = VisitItems)) +
+  geom_boxplot(outlier.size = 0.5, fill = 'tomato', colour = 'tomato', alpha = 0.5) +
+  ggtitle("Weekday vs VisitItems") +
+  coord_flip()
+```
+
+### VisitNumber + ScanCode + TripType
+
+**train_Visits**
+
+```{r}
+train_Visits <- train %>% 
+  select(TripType, VisitNumber, Weekday, ScanCount) %>% 
+  group_by(TripType, VisitNumber, Weekday) %>% 
+  summarize(VisitRows = n(), VisitItems = sum(ScanCount))
+```
+
+<!--```{r} -->
+<!--train_Visits <- train %>%  -->
+<!-- select(TripType, VisitNumber, Weekday, ScanCount) %>%  -->
+<!-- mutate(PosCount = ScanCount > 0, NegCount = ScanCount < 0) %>%  -->
+<!-- group_by(TripType, VisitNumber, Weekday) %>%  -->
+<!-- summarize(VisitRows = n(), VisitItems = sum(ScanCount),  -->
+<!-- VisitPosItems = sum(ScanCount * PosCount), -->
+<!-- VisitNegItems = sum(ScanCount * NegCount)) -->
+<!-- ``` -->
+
+* Cuántas visitas hay por `TripType` en el dataset `train`?
+
+```{r}
+table(train_Visits$TripType)
+```
+
+```{r}
+train_Visits %>%  
+  ggplot(aes(x = TripType, fill = TripType)) + 
+  geom_bar(colour = 'grey', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  labs(title = "numero de visitas por TripType", x = "TripType", y = "count") + 
+  coord_flip()
+```
+
+Hay 4 visitas en el `TripType` 14.
+
+<!-- * Cuántos obervaciones hay por visita por `TripType` en el dataset `train`? -->
+
+<!-- ```{r} -->
+<!-- train_Visits %>%   -->
+<!--   ggplot(aes(x = TripType, y = VisitRows)) + -->
+<!--   geom_boxplot() + -->
+<!--   coord_flip() + -->
+<!--   ggtitle("TripType vs VisitRows") -->
+<!-- ``` -->
+
+* Cuántos items se compran por visita por `TripType` en el dataset `train`?
+
+```{r}
+train_Visits %>% 
+  ggplot(aes(x = TripType, y = VisitItems)) +
+  geom_boxplot(outlier.size = 0.5, fill = 'tomato', colour = 'tomato', alpha = 0.5) +
+  coord_flip() +
+  ggtitle("TripType vs VisitItems")
+```
+
+Concluimos que el número de items por visita distingue entre distintos `TripType`s.
+
+### VisitNumber + ScanCode + DepartmentDescription
+
+**total_Depts**
+
+```{r}
+total_Depts <- total %>% 
+  select(VisitNumber, Weekday, ScanCount, DepartmentDescription) %>% 
+  group_by(VisitNumber, Weekday, DepartmentDescription) %>% 
+  summarize(DeptRows = n(), DeptItems = sum(ScanCount))
+```
+
+* Cuántas visitas hay por Departamento en el dataset `total`?
+```{r}
+total_Depts %>% 
+  group_by(DepartmentDescription) %>% 
+  summarize(n = n_distinct(VisitNumber)) %>% 
+  ggplot(aes(x = DepartmentDescription, y = n, fill = DepartmentDescription)) +
+  geom_bar(stat = 'identity', colour = 'grey', alpha = 0.5) +
+  coord_flip() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  theme(text = element_text(size = 6)) +
+  labs(title = "numero de visitas por DepartmentDescription", x = "Dept", y = "count") + 
+  theme(legend.position="none")
+```
+
+* Cuántos items se compran por visita por `DepartmentDescription` en el dataset `train`?
+
+```{r}
+total_Depts %>% 
+  ggplot(aes(x = DepartmentDescription, y = DeptItems)) +
+  geom_boxplot(outlier.size = 0.5, fill = 'tomato', colour = 'tomato', alpha = 0.25) +
+  coord_flip() +
+  ggtitle("DepartmentDescription vs DeptItems") + 
+  theme(text = element_text(size = 6))
+```
+
+* En cuántos Departamentos se compra en cada visita en el dataset `total`?
+
+```{r}
+total_Depts %>% 
+  group_by(VisitNumber) %>% 
+  summarize(n = n_distinct(DepartmentDescription)) %>% 
+  ggplot(aes(x = 'numDepts', y = n)) +
+  geom_boxplot(fill = 'lightblue', colour = 'grey', alpha = 0.5) 
+```
+
+### VisitNumber + ScanCode + Weekday + TripType
+
+<!-- * Cuántas visitas hay por `TripType` por `Weekday` en el dataset `train`? -->
+
+<!-- ```{r} -->
+<!-- table(train_Visits$TripType, train_Visits$Weekday) -->
+<!-- ``` -->
+
+* Obtenemos la distribución de visitas por `Weekday` para cada `TripType`
+
+Cada renglón representa la distribución de cada TripType.
+```{r}
+tt <- as.matrix(table(train_Visits$TripType, train_Visits$Weekday))
+tt_TripType <- tt / apply(tt, 1, sum)
+tt_TripType <- melt(tt_TripType)
+colnames(tt_TripType) <- c('TripType', 'Weekday', 'pct')
+ggplot(tt_TripType, aes(x = Weekday, y = as.factor(TripType), fill = pct)) + 
+  geom_raster()
+```
+
+* Obtenemos la distribución de visitas por `TripType` para cada `Weekday`
+
+Cada columna representa la distribución de cada Weekday.
+```{r}
+tt <- as.matrix(table(train_Visits$Weekday, train_Visits$TripType))
+tt_Weekday <- tt / apply(tt, 1, sum)
+tt_Weekday <- melt(tt_Weekday)
+colnames(tt_Weekday) <- c('Weekday', 'TripType', 'pct')
+ggplot(tt_Weekday, aes(x = Weekday, y = as.factor(TripType), fill = pct)) + 
+  geom_raster()
+```
+
+Concluimos que `Weekday` no distingue entre distintos `TripType`s.
+
+### DepartmentDescription + TripType
+
+<!-- * Cuántas observaciones hay por `DepartmentDescription` por cada `TripType` en el dataset `train`? -->
+<!-- ```{r} -->
+<!-- table(train$DepartmentDescription, train$TripType) -->
+<!-- ``` -->
+
+* Obtenemos la distribución de observaciones por `TripType` para cada `DepartmentDescription`
+
+Cada columna representa la distribución de cada `DepartmentDescription`.
+```{r}
+tt <- as.matrix(table(train$DepartmentDescription, train$TripType))
+tt <- tt / apply(tt, 1, sum)
+tt <- melt(tt)
+colnames(tt) <- c('DepartmentDescription', 'TripType', 'pct')
+
+ggplot(tt, aes(x = DepartmentDescription, y = as.factor(TripType), fill = pct)) +
+  geom_raster() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(text = element_text(size = 6))
+```
+
+Vemos que en todos los departamentos hay una importante concentración de viajes de tipo 40, 39, 9, y 8. Esto hace sentido porque la mayoría de los viajes son de estos tipos.
+
+* Obtenemos la distribución de observaciones por `DepartmentDescription` para cada `TripType`
+
+Cada renglón representa la distribución de cada TripType.
+```{r}
+tt <- as.matrix(table(train$TripType, train$DepartmentDescription))
+tt_TripType <- tt / apply(tt, 1, sum)
+tt_TripType <- melt(tt_TripType)
+colnames(tt_TripType) <- c('TripType', 'DepartmentDescription', 'pct')
+
+ggplot(tt_TripType, aes(x = DepartmentDescription, y = as.factor(TripType), fill = pct)) + 
+  geom_raster()  +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(text = element_text(size = 6))
+```
+
+Podemos ver que:
+
++ las observaciones tipo 3 se concentra en *Financial Services*
++ las observaciones tipo 14 se concentran en *Fabrics and Crafts*
+
+Concluimos que `DepartmentDescription` distingue entre `TripTypes`
+
+<!-- ### VisitNumber + ScanCode + Weekday + DepartmentDescription + TripType -->
+
+<!-- **train_Depts** -->
+
+<!-- ```{r} -->
+<!-- train_Depts <- train %>%  -->
+<!--   select(TripType, VisitNumber, Weekday, ScanCount, DepartmentDescription) %>%  -->
+<!--   group_by(TripType, VisitNumber, Weekday, DepartmentDescription) %>%  -->
+<!--   summarize(DeptRows = n(), DeptItems = sum(ScanCount)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- train_Depts %>% left_join(train_Visits, by = c('TripType', 'VisitNumber', 'Weekday')) %>%  -->
+<!--   arrange(VisitNumber) -->
+<!-- ``` -->
+
+<!--  #### -->
+<!-- Para resolver el problema tomaremos la distribución por departamento por cada trip type...analysis de correspondencias -->
+
+<!-- por visita encontrar el más cercano -->
+
+
+<!-- #### -->

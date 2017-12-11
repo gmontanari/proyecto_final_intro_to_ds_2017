@@ -1,0 +1,784 @@
+---
+title: "Proyecto Final"
+author: "Michelle Audirac"
+date: "18 Diciembre, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+EDA (R)
+Limpieza (R)
+Imputación (R o Python)
+Transformación (Python)
+Ingeniería de características (Python)
+Selección (Python)
+Filtrado (Python)
+Predicción con pipelines (multiples algoritmos) (Python) 
+Medición
+entrega de reporte reproducible con instrucciones para ejecución
+
+For this competition, you are tasked with categorizing shopping trip types based on the items that customers purchased. To give a few hypothetical examples of trip types: a customer may make a small daily dinner trip, a weekly large grocery trip, a trip to buy gifts for an upcoming holiday, or a seasonal trip to buy clothes.
+
+Walmart has categorized the trips contained in this data into 38 distinct types using a proprietary method applied to an extended set of data. You are challenged to recreate this categorization/clustering with a more limited set of features. This could provide new and more robust ways to categorize trips.
+
+The training set (train.csv) contains a large number of customer visits with the TripType included. You must predict the TripType for each customer visit in the test set (test.csv). Each visit may only have one TripType. You will not be provided with more information than what is given in the data (e.g. what the TripTypes represent or more product information).
+
+The test set file is encrypted. You must complete this brief survey to receive the password.
+
+Data fields
+
+TripType - a categorical id representing the type of shopping trip the customer made. This is the ground truth that you are predicting. TripType_999 is an "other" category.
+VisitNumber - an id corresponding to a single trip by a single customer
+Weekday - the weekday of the trip
+Upc - the UPC number of the product purchased
+ScanCount - the number of the given item that was purchased. A negative value indicates a product return.
+DepartmentDescription - a high-level description of the item's department
+FinelineNumber - a more refined category for each of the products, created by Walmart
+
+```{r setup, message=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+instalar <- function(paquete) {
+
+    if (!require(paquete,character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)) {
+        install.packages(as.character(paquete), dependecies = TRUE, repos = "http://cran.us.r-project.org")
+        library(paquete, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+    }
+}
+
+paquetes <- c('magrittr', 'dplyr', 'ggplot2', 'reshape2')
+
+#paquetes <- c('tidyr', 'lubridate', , 'ggvis', 'dplyr', 'tidyr', 'readr', 'rvest', 
+#              , 'stringr', 'ggthemes', 'googleVis', 'shiny', 'tibble', 'vcd', 'vcdExtra', 
+#              'GGally', 'readODS', 'readxl', "RSQLite", 'extracat', 'gridExtra', 'outliers')
+
+lapply(paquetes, instalar)
+
+```
+
+## Carga y preparación
+
+En esta sección cargamos y preparamos los datasets `train`y `test`.
+
+**train**
+
+* Cargamos los datos `train`
+
+```{r}
+train <- read.csv('../data/train.csv')
+```
+
+* Validamos la clase del objeto `train`
+
+```{r}
+class(train)
+```
+
+* Observamos la estructura de `train` 
+
+```{r}
+str(train)
+```
+
+* Modificamos la clase de algunas columnas de `train`
+
+```{r}
+train$TripType <- as.factor(train$TripType)
+train$VisitNumber <- as.factor(train$VisitNumber)
+train$Upc <- as.factor(train$Upc)
+train$FinelineNumber <- as.factor(train$FinelineNumber)
+```
+
+**test**
+
+* Cargamos los datos `test`
+
+```{r}
+test <- read.csv('../data/test.csv')
+```
+
+* Validamos la clase del objeto `test`
+
+```{r}
+class(test)
+```
+
+* Observamos la estructura de `test` 
+
+```{r}
+str(test)
+```
+
+* Modificamos la clase de algunas columnas de `test`
+
+```{r}
+test$VisitNumber <- as.factor(test$VisitNumber)
+test$Upc <- as.factor(test$Upc)
+test$FinelineNumber <- as.factor(test$FinelineNumber)
+```
+
+## EDA y limpieza
+
+### Exploración univariada
+
+En esta sección hacemos una exploración univarida de las columnas en `test`. También se exploran las columnas en `train` para valorar qué tipo de imputaciones debemos realizar más adelante.
+
+#### Campos vacíos
+
+**train**
+
+* Cuántos NAs hay por columna en el dataset `train`?
+
+```{r}
+apply(train, 2, function(x) sum(is.na(x)))
+```
+
+* Cuántos NULLs hay por columna en el dataset `train`?
+
+```{r}
+apply(train, 2, function(x) sum(is.null(x)))
+```
+
+**test**
+
+* Cuántos NAs hay por columna en el dataset `test`?
+
+```{r}
+apply(test, 2, function(x) sum(is.na(x)))
+```
+
+* Cuántos NULLs hay por columna en el dataset `test`?
+
+```{r}
+apply(test, 2, function(x) sum(is.null(x)))
+```
+
+#### TripType
+
+`TripType` es una variable categórica
+
+**train**
+
+* Cuántas categorías tiene `TripType` en el dataset `train`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(train$TripType))))
+```
+
+* Qué categorías y cuántas observaciones por categoría tiene `TripType` en el dataset `train`?
+
+```{r}
+print(summary(train$TripType))
+```
+
+```{r}
+ggplot(train, aes(TripType, fill = TripType)) +
+  geom_bar(colour = 'grey', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  labs(title = "numero de observaciones por categoria en TripType", x = "TripType", y = "count") + 
+  coord_flip()
+```
+
+* Cuál es el resumen y el histograma del número de observaciones por categoría en `TripType` en el dataset `train`?
+
+```{r}
+summary(as.data.frame(table(train$TripType))$Freq)
+```
+
+```{r}
+ggplot(as.data.frame(table(train$TripType)), aes(x = Freq)) +
+  geom_histogram(colour = 'grey', fill = 'lightblue', alpha = 0.7)
+```
+
+#### VisitNumber
+
+`VisitNumber` es una variable categórica
+
+**train**
+
+* Cuántas categorías tiene `VisitNumber`en el dataset `train`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(train$VisitNumber))))
+```
+
+* Cuál es el resumen y el boxplot del número de observaciones por categoría en `VisitNumber` en el dataset `train`?
+
+```{r}
+summary(as.data.frame(table(train$VisitNumber))$Freq)
+```
+
+```{r}
+ggplot(as.data.frame(table(train$VisitNumber)), aes(x = 'count', y = Freq)) +
+  geom_boxplot(colour = 'grey', fill = 'lightblue', alpha = 0.7) +
+  coord_flip()
+```
+
+**test**
+
+* Cuántas categorías tiene `VisitNumber` en el dataset `test`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(test$VisitNumber))))
+```
+
+* Cuál es el resumen y el boxplot del número de observaciones por categoría en `VisitNumber` en el dataset `test`?
+
+```{r}
+summary(as.data.frame(table(test$VisitNumber))$Freq)
+```
+
+```{r}
+ggplot(as.data.frame(table(test$VisitNumber)), aes(x = 'count', y = Freq)) +
+  geom_boxplot(colour = 'grey', fill = 'orchid', alpha = 0.7) + 
+  coord_flip()
+```
+
+#### Weekday
+
+`Weekday` es una variable categórica
+
+**train**
+
+* Qué categorías y cuántas observaciones por categoría tiene `Weekday` en el dataset `train`?
+
+```{r}
+print(summary(train$Weekday))
+```
+
+```{r}
+ggplot(train, aes(Weekday, fill = Weekday)) +
+  geom_bar(colour = 'grey', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  labs(title = "numero de observaciones por categoria en Weekday", x = "Weekday", y = "count") + 
+  coord_flip()
+```
+
+**test**
+
+* Qué categorías y cuántas observaciones por categoría tiene `Weekday` en el dataset `test`?
+
+```{r}
+print(summary(test$Weekday))
+```
+
+```{r}
+ggplot(test, aes(Weekday, fill = Weekday)) +
+  geom_bar(colour = 'grey', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  labs(title = "numero de observaciones por categoria en Weekday", x = "Weekday", y = "count") + 
+  coord_flip()
+```
+
+#### Upc
+
+`Upc` es una variable categórica
+
+**train**
+
+* Cuántas categorías tiene `Upc` en el dataset `train`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(train$Upc))))
+```
+
+* Cuál es el resumen y el boxplot del número de observaciones por categoría en `Upc` en el dataset `train`?
+
+```{r}
+n_Upc <- as.data.frame(table(train$Upc))
+summary(n_Upc$Freq)
+```
+
+```{r}
+ggplot(n_Upc, aes(x = 'count', y = Freq)) +
+  geom_boxplot(colour = 'grey', fill = 'lightblue', alpha = 0.7)
+```
+
+* Cuál es el histograma del número de observaciones por categoría en `Upc` en el dataset `train`?
+
+Eliminamos aquellas categorías en `Upc` que tienen más de 200 observaciones.
+
+```{r}
+ggplot(n_Upc[n_Upc$Freq < 200, ], aes(x = Freq)) +
+  geom_histogram(colour = 'grey', fill = 'lightblue', alpha = 0.7)
+```
+
+**test**
+
+* Cuántas categorías tiene `Upc` en el dataset `test`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(test$Upc))))
+```
+
+* Cuál es el resumen y el boxplot del número de observaciones por categoría en `Upc` en el dataset `test`?
+
+```{r}
+n_Upc <- as.data.frame(table(test$Upc))
+summary(n_Upc$Freq)
+```
+
+```{r}
+ggplot(n_Upc, aes(x = 'count', y = Freq)) +
+  geom_boxplot(colour = 'grey', fill = 'orchid', alpha = 0.7)
+```
+
+Cuál es el histograma del número de observaciones por categoría en `Upc` en el dataset `test`?
+
+Eliminamos aquellas categorías en `Upc` que tienen más de 200 observaciones
+
+```{r}
+ggplot(n_Upc[n_Upc$Freq < 200, ], aes(x = Freq)) +
+  geom_histogram(colour = 'grey', fill = 'orchid', alpha = 0.7)
+```
+
+#### FinelineNumber
+
+`FinelineNumber` es una variable categórica
+
+**train**
+
+* Cuántas categorías tiene `FinelineNumber` en el dataset `train`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(train$FinelineNumber))))
+```
+
+* Cuál es el resumen y el boxplot del número de observaciones por categoría en `FinelineNumber` en el dataset `train`?
+
+```{r}
+n_FinelineNumber <- as.data.frame(table(train$FinelineNumber))
+summary(n_FinelineNumber$Freq)
+```
+
+```{r}
+ggplot(n_FinelineNumber, aes(x = 'count', y = Freq)) +
+  geom_boxplot(colour = 'grey', fill = 'lightblue', alpha = 0.7)
+```
+
+Cuál es el histograma del número de observaciones por categoría en `FinelineNumber` en el dataset `train`?
+
+Eliminamos aquellas categorías en `FinelineNumber` que tienen más de 500 observaciones
+
+```{r}
+ggplot(n_FinelineNumber[n_FinelineNumber$Freq < 500, ], aes(x = Freq)) +
+  geom_histogram(colour = 'grey', fill = 'lightblue', alpha = 0.7)
+```
+
+**test**
+
+* Cuántas categorías tiene `FinelineNumber` en el dataset `test`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(test$FinelineNumber))))
+```
+
+* Cuál es el resumen y el boxplot del número de observaciones por categoría en `FinelineNumber` en el dataset `test`?
+
+```{r}
+n_FinelineNumber <- as.data.frame(table(test$FinelineNumber))
+summary(n_FinelineNumber$Freq)
+```
+
+```{r}
+ggplot(n_FinelineNumber, aes(x = 'count', y = Freq)) +
+  geom_boxplot(colour = 'grey', fill = 'orchid', alpha = 0.7)
+```
+
+Cuál es el histograma del número de observaciones por categoría en `FinelineNumber` en el dataset `test`?
+
+Eliminamos aquellas categorías en `FinelineNumber` que tienen más de 500 observaciones
+
+```{r}
+ggplot(n_FinelineNumber[n_FinelineNumber$Freq < 500, ], aes(x = Freq)) +
+  geom_histogram(colour = 'grey', fill = 'orchid', alpha = 0.7)
+```
+
+#### DepartmentDescription
+
+`DepartmentDescription` es una variable categórica
+
+**train**
+
+* Cuántas categorías tiene `DepartmentDescription` en el dataset `train`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(train$DepartmentDescription))))
+```
+
+* Qué categorías y cuántas observaciones por categoría tiene `DepartmentDescription` en el dataset `train`?
+
+```{r}
+print(summary(train$DepartmentDescription))
+```
+
+Antes no identificamos NULLs en ninguna columna, pero existe una categoría 'NULL' en `DepartmentDescription`.
+
+```{r}
+train$DepartmentDescription[train$DepartmentDescription == 'NULL'] <- NA
+```
+
+```{r}
+ggplot(train, aes(DepartmentDescription)) +
+  geom_bar(colour = 'grey', fill = 'lightblue', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  theme(text = element_text(size = 6)) +
+  labs(title = "numero de observaciones por categoria en DepartmentDescription", x = "DepartmentDescription", y = "count") + 
+  coord_flip()
+```
+
+* Cuál es el resumen y el boxplot del número de observaciones por categoría en `DepartmentDescription` en el dataset `train`?
+
+```{r}
+n_DepartmentDescription <- as.data.frame(table(train$DepartmentDescription))
+summary(n_DepartmentDescription$Freq)
+```
+
+```{r}
+ggplot(n_DepartmentDescription, aes(x = 'count', y = Freq)) +
+  geom_boxplot(colour = 'grey', fill = 'lightblue', alpha = 0.7)
+```
+
+Cuál es el histograma del número de observaciones por categoría en `DepartmentDescription` en el dataset `train`?
+
+Eliminamos aquellas categorías en `DepartmentDescription` que tienen más de 40000 observaciones.
+
+```{r}
+ggplot(n_DepartmentDescription[n_DepartmentDescription$Freq < 40000, ], aes(x = Freq)) +
+  geom_histogram(colour = 'grey', fill = 'lightblue', alpha = 0.7)
+```
+
+**test**
+
+* Cuántas categorías tiene `DepartmentDescription` en el dataset `test`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(test$DepartmentDescription))))
+```
+
+* Qué categorías y cuántas observaciones por categoría tiene `DepartmentDescription` en el dataset `test`?
+
+```{r}
+print(summary(test$DepartmentDescription))
+```
+
+Antes no identificamos NULLs en ninguna columna, pero existe una categoría 'NULL' en `DepartmentDescription`.
+
+```{r}
+test$DepartmentDescription[test$DepartmentDescription == 'NULL'] <- NA
+```
+
+```{r}
+ggplot(test, aes(DepartmentDescription)) +
+  geom_bar(colour = 'grey', fill = 'orchid', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  theme(text = element_text(size = 6)) +
+  labs(title = "numero de observaciones por categoria en DepartmentDescription", x = "DepartmentDescription", y = "count") + 
+  coord_flip()
+```
+
+* Cuál es el resumen y el boxplot del número de observaciones por categoría en `DepartmentDescription` en el dataset `test`?
+
+```{r}
+n_DepartmentDescription <- as.data.frame(table(test$DepartmentDescription))
+summary(n_DepartmentDescription$Freq)
+```
+
+```{r}
+ggplot(n_DepartmentDescription, aes(x = 'count', y = Freq)) +
+  geom_boxplot(colour = 'grey', fill = 'orchid', alpha = 0.7)
+```
+
+Cuál es el histograma del número de observaciones por categoría en `DepartmentDescription` en el dataset `test`?
+
+Eliminamos aquellas categorías en `DepartmentDescription` que tienen más de 40,000 observaciones
+
+```{r}
+ggplot(n_DepartmentDescription[n_DepartmentDescription$Freq < 40000, ], aes(x = Freq)) +
+  geom_histogram(colour = 'grey', fill = 'orchid', alpha = 0.7)
+```
+
+#### ScanCount
+
+`ScanCount` es una variable numérica (pero la exploraremos como categórica)
+
+**train**
+
+* Cuántas categorías tiene `ScanCount` en el dataset `train`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(as.factor(train$ScanCount)))))
+```
+
+* Qué categorías y cuántas observaciones por categoría tiene `ScanCount` en el dataset `train`?
+
+```{r}
+print(summary(as.factor(train$ScanCount)))
+```
+
+```{r}
+ggplot(train, aes(as.factor(ScanCount))) +
+  geom_bar(colour = 'grey', fill = 'lightblue', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  theme(text = element_text(size = 6)) +
+  labs(title = "numero de observaciones por categoria en ScanCount", x = "ScanCount", y = "count") + 
+  coord_flip()
+```
+
+* Cuál es el resumen de `ScanCount` en el dataset `train`?
+
+```{r}
+summary(train$ScanCount)
+```
+
+**test**
+
+* Cuántas categorías tiene `ScanCount` en el dataset `test`?
+
+```{r}
+print(paste('numero de categorias:', length(levels(as.factor(test$ScanCount)))))
+```
+
+* Qué categorías y cuántas observaciones por categoría tiene `ScanCount` en el dataset `test`?
+
+```{r}
+print(summary(as.factor(test$ScanCount)))
+```
+
+```{r}
+ggplot(test, aes(as.factor(ScanCount))) +
+  geom_bar(colour = 'grey', fill = 'orchid', alpha = 0.7) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  theme(text = element_text(size = 6)) +
+  labs(title = "numero de observaciones por categoria en ScanCount", x = "ScanCount", y = "count") + 
+  coord_flip()
+```
+
+* Cuál es el resumen de `ScanCount` en el dataset `test`?
+
+```{r}
+summary(test$ScanCount)
+```
+
+### Exploración bivariada
+
+En esta sección hacemos una exploración bivariada de las columnas en `test` y `train`.
+
+#### Validaciones
+
+**visits**
+
+```{r}
+visits <- rbind(train[, -1], test) %>% 
+  distinct(TripType, VisitNumber, Weekday)
+```
+
+* Existe un único `TripType` por cada `VisitNumber`?
+
+```{r}
+validacion <- train %>% 
+  distinct(TripType, VisitNumber, Weekday) %>% 
+  group_by(VisitNumber) %>% 
+  summarize(count = n_distinct(TripType)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+* Existe un único `Weekday` por cada `VisitNumber`?
+
+```{r}
+validacion <- visits %>% 
+  group_by(VisitNumber) %>% 
+  summarize(count = n_distinct(Weekday)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+**products**
+
+```{r}
+products <- rbind(train[, -1], test) %>% 
+  select(Upc, FinelineNumber, DepartmentDescription) %>% 
+  group_by(Upc, FinelineNumber, DepartmentDescription) %>% 
+  summarize(num = n())
+```
+
+* Existe un único `FinelineNumber` por cada `Upc`?
+
+```{r}
+validacion <- products %>% 
+  group_by(Upc) %>% 
+  summarize(count = n_distinct(FinelineNumber)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+```{r}
+error <- validacion$Upc[validacion$error]
+
+head(products %>% 
+  distinct(Upc, FinelineNumber) %>% 
+  filter(Upc %in% error) %>% 
+  arrange(as.numeric(Upc)))
+```
+
+* Existe un único `DepartmentDescription` por cada `Upc`?
+
+```{r}
+validacion <- products %>% 
+  group_by(Upc) %>% 
+  summarize(count = n_distinct(DepartmentDescription)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+```{r}
+error <- validacion$Upc[validacion$error]
+
+products %>% 
+  filter(Upc %in% error) %>% 
+  arrange(as.numeric(Upc))
+```
+
+* Existe un único `DepartmentDescription` por cada `FinelineNumber`?
+
+```{r}
+validacion <- products %>% 
+  group_by(FinelineNumber) %>% 
+  summarize(count = n_distinct(DepartmentDescription)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+```{r}
+error <- validacion$FinelineNumber[validacion$error]
+
+head(products %>% 
+  distinct(FinelineNumber, DepartmentDescription) %>% 
+  filter(FinelineNumber %in% error) %>% 
+  arrange(as.numeric(FinelineNumber)))
+```
+
+#### Campos vacíos
+
+* Qué entradas en `UPC` y `FinelineNumber` tienen NAs?
+
+```{r}
+products[is.na(products$Upc), ]
+```
+
+Las entradas que tienen NAs en `UPC` son las mismas que tienen NAs en `FinelineNumber`.
+
+```{r}
+products[is.na(products$FinelineNumber), ]
+```
+
+Las entradas que no tienen `DepartmentDescription` tampoco tienen `Upc` y `FinelineNumber`.
+
+```{r}
+products[is.na(products$DepartmentDescription), ]
+```
+
+#### Visit Number + ScanCount
+
+**items_per_visit**
+
+```{r}
+items_per_visit <- train %>% 
+  select(VisitNumber, TripType, Weekday, ScanCount) %>% 
+  group_by(VisitNumber, TripType, Weekday) %>% 
+  summarize(items_per_visit = sum(ScanCount))
+```
+
+* Cuántos artículos se compran por visita?
+
+```{r}
+summary(items_per_visit$items_per_visit)
+```
+
+```{r}
+ggplot(items_per_visit, aes(x = 'count', y = items_per_visit)) +
+  geom_boxplot(colour = 'grey', fill = 'lightblue', alpha = 0.7) +
+  coord_flip()
+```
+
+#### VisitNumber + TripType + ScanCode
+
+**rows_per_visit**
+
+```{r}
+rows_per_visit <- train %>% 
+  select(VisitNumber, TripType, Weekday) %>% 
+  group_by(VisitNumber, TripType, Weekday) %>% 
+  summarize(rows_per_visit = n())
+```
+
+* Cuántos obervaciones hay por visita por TripType?
+
+```{r}
+rows_per_visit %>%
+  ggplot(aes(x = TripType, y = rows_per_visit)) +
+  geom_boxplot() +
+  coord_flip() +
+  ggtitle("TripType vs rows_per_visit")
+```
+
+* Cuántos artículos se compran por visita por TripType?
+
+```{r}
+items_per_visit %>%
+  ggplot(aes(x = TripType, y = items_per_visit)) +
+  geom_boxplot() +
+  coord_flip() +
+  ggtitle("TripType vs items_per_visit")
+```
+
+#### VisitNumber + Weekday + ScanCode
+
+* Cuántos observaciones hay por visita por Weekday?
+
+Filtramos aquellas visitas con más de 125 observaciones.
+
+```{r}
+rows_per_visit %>%
+  filter(rows_per_visit < 125) %>%
+  ggplot(aes(x = Weekday, y = rows_per_visit)) +
+  geom_boxplot() +
+  ggtitle("Weekday vs rows_per_visit")
+```
+
+* Cuántos artículos se compran por visita por Weekday?
+
+Filtramos aquellas visitas con más de 125 artículos comprados.
+
+```{r}
+items_per_visit %>%
+  filter(items_per_visit < 125) %>%
+  ggplot(aes(x = Weekday, y = items_per_visit)) +
+  geom_boxplot() +
+  ggtitle("Weekday vs items_per_visit")
+```
+
+####
+Para resolver el problema tomaremos la distribución por departamento por cada trip type...analysis de correspondencias
+
+por visita encontrar el más cercano
+
+
+####

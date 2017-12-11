@@ -1,0 +1,183 @@
+---
+title: "Proyecto Final (parte 2)"
+author: "Michelle Audirac"
+date: "12/10/2017"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+instalar <- function(paquete) {
+
+    if (!require(paquete,character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)) {
+        install.packages(as.character(paquete), dependecies = TRUE, repos = "http://cran.us.r-project.org")
+        library(paquete, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+    }
+}
+
+paquetes <- c('dplyr')
+
+#paquetes <- c('tidyr', 'lubridate', , 'ggvis', 'dplyr', 'tidyr', 'readr', 'rvest', 
+#              , 'stringr', 'ggthemes', 'googleVis', 'shiny', 'tibble', 'vcd', 'vcdExtra', 
+#              'GGally', 'readODS', 'readxl', "RSQLite", 'extracat', 'gridExtra', 'outliers')
+
+lapply(paquetes, instalar)
+
+```
+
+```{r, warning=FALSE, message = FALSE}
+total <- readRDS('../data/total_prep.RDS')
+train <- readRDS('../data/train_prep.RDS')
+test <- readRDS('../data/test_prep.RDS')
+```
+
+## Limpieza e Imputación
+
+En esta sección hacemos la limpieza e imputación de los datasets.
+
+### Validaciones
+
+* Existe un único `TripType` por cada `VisitNumber` en el dataset `train`?
+
+Si, no hay ningún error.
+
+```{r, warning=FALSE, message = FALSE}
+validacion <- train %>% 
+  distinct(TripType, VisitNumber) %>% 
+  group_by(VisitNumber) %>% 
+  summarize(count = n_distinct(TripType)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+* Existe un único `Weekday` por cada `VisitNumber` en el dataset `total`?
+
+Si, no hay ningún error.
+
+```{r, warning=FALSE, message = FALSE}
+validacion <- total %>% 
+  distinct(VisitNumber, Weekday) %>% 
+  group_by(VisitNumber) %>% 
+  summarize(count = n_distinct(Weekday)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+**products**
+
+```{r, warning=FALSE, message = FALSE}
+products <- total %>% 
+  select(Upc, FinelineNumber, DepartmentDescription) %>% 
+  group_by(Upc, FinelineNumber, DepartmentDescription) %>% 
+  summarize(num = n())
+```
+
+* Existe un único `FinelineNumber` por cada `Upc`?
+
+Existen 13 `Upc`s que tienen más de un `FinelineNumber`.
+
+```{r, warning=FALSE, message = FALSE}
+validacion <- products %>% 
+  group_by(Upc) %>% 
+  summarize(count = n_distinct(FinelineNumber)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+* Cuántas observaciones en `total` contienen `Upc`s que tienen más de un `FinelineNumber`?
+
+Esto ocurre en 136 observaciones.
+
+```{r, warning=FALSE, message = FALSE}
+error <- validacion$Upc[validacion$error]
+
+dim(total %>% filter(Upc %in% error))
+```
+
+* Existe un único `DepartmentDescription` por cada `Upc`?
+
+Existen 1 `Upc`s que tienen más de un `DepartmentDescription`.
+
+```{r, warning=FALSE, message = FALSE}
+validacion <- products %>% 
+  group_by(Upc) %>% 
+  summarize(count = n_distinct(DepartmentDescription)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+* Qué `Upc` tiene más de un `DepartmentDescription`?
+
+Se trata de los NAs.
+
+```{r, warning=FALSE, message = FALSE}
+error <- validacion$Upc[validacion$error]
+
+products %>% 
+  distinct(Upc, DepartmentDescription) %>% 
+  filter(Upc %in% error)
+```
+
+* Existe un único `DepartmentDescription` por cada `FinelineNumber`?
+
+Hay muchos `FinelineNumber`s que corresponden a diferentes `DepartmentDescription`s
+
+```{r, warning=FALSE, message = FALSE}
+validacion <- products %>% 
+  group_by(FinelineNumber) %>% 
+  summarize(count = n_distinct(DepartmentDescription)) %>% 
+  mutate(error = (count != 1))
+
+validacion %>% 
+  group_by(error) %>% 
+  summarize(n())
+```
+
+* Cuántas observaciones en `total` contienen `FinelineNumbers`s que tienen más de un `DepartmentDescription`?
+
+Esto ocurre en casi un millón de observaciones, es decir en el 75% de `total`.
+
+```{r, warning=FALSE, message = FALSE}
+error <- validacion$FinelineNumber[validacion$error]
+
+dim(total %>% filter(FinelineNumber %in% error))
+```
+
+### Campos vacíos
+
+* Qué entradas en `UPC` y `FinelineNumber` tienen NAs?
+
+Las entradas que tienen NAs en `UPC` son las mismas que tienen NAs en `FinelineNumber`.
+
+```{r, warning=FALSE, message = FALSE}
+products[is.na(products$Upc), ]
+```
+
+```{r, warning=FALSE, message = FALSE}
+products[is.na(products$FinelineNumber), ]
+```
+
+Las entradas que no tienen `DepartmentDescription` tampoco tienen `Upc` y `FinelineNumber`.
+
+```{r, warning=FALSE, message = FALSE}
+products[products$DepartmentDescription == 'NULL', ]
+```
+
+**total_clean**
+
+```{r}
+
+```
