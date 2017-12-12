@@ -1,0 +1,157 @@
+---
+title: "Exploratory Data Analysis"
+author: "Eduardo Hidalgo"
+date: "Diciembre 9, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/Maestría en Ciencia de Datos ITAM 2017/Minería y Análisis de Datos/Examen Parcial Mineria y Analisis de Datos/Projecto Final Mineria y Analisis de Datos")
+tab_stata_one<-function(z,x){
+  temporal<-z%>%group_by(.dots = lazyeval::lazy(x))%>%summarise(Observations=n())
+  View(temporal)
+}
+library(haven)
+library(readr)
+library(tidyverse)
+library(ggplot2)
+library(xlsx)
+library(readxl)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(gridExtra)
+library(gmodels)
+library(readr)
+library(lubridate)
+library(formattable)
+library(knitr)
+library(kableExtra)
+train_set<- read_csv("~/Maestría en Ciencia de Datos ITAM 2017/Minería y Análisis de Datos/Examen Parcial Mineria y Analisis de Datos/Projecto Final Mineria y Analisis de Datos/train.csv")
+#View(train_set)
+
+```
+
+### Descripcion de las variables de la base original
+
+![](DescripcionVariables.png)
+
+<p> La base contiene 647,054 registros donde : </p>
+
+* Cada registro es un articulo comprado
+* Cada compra se agrupa en una visita y la visita esta clasificada en un tipo de visita
+* En cuanto a NA's las variables Upc y FinelineNumber ambas cuentan con 4,129 observaciones de este tipo
+
+
+```{r}
+glimpse(train_set)
+summary(train_set)
+```
+
+
+
+
+<p>Nota.- El objetivo del exámen es encontrar el mejor modelo para predecir el tipo de visita de acuerdo a las variables que más información aporten para la predicción del tipo de visita</p>
+
+<p>Tratamiento de las variables</p>
+
+* Dia de la semana como factor
+* Tipo de visita como factor
+* Upc como factor
+* ScanCount como factor
+* FinelineNumber como factor
+
+### Análisis univariado
+
+```{r TablaPuntos_1,echo=FALSE}
+train_set$Weekday<-factor(train_set$Weekday,c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'))
+train_set$TripType<-as.factor(train_set$TripType)
+train_set$ScanCount<-as.factor(train_set$ScanCount)
+train_set$FinelineNumber<-as.factor(train_set$FinelineNumber)
+tab_stata_one(train_set,train_set$Weekday)
+```
+
+
+```{r,echo=FALSE}
+q<-ggplot(data=train_set, aes(Weekday)) + 
+  geom_histogram(aes(),stat='count', 
+                #breaks=seq(-5, 5, by = 2), 
+                 col="black", 
+                 fill="blue")
+q+scale_y_continuous(labels = scales::comma)+ ggtitle(expression(atop("Numero de compras por día de la semana", atop(italic(""), ""))))
+```
+<p> Los fines de semana son los días con maor numero de compras, visitas y articulos distintos comprados </p>
+<p> Entre semana el día con mayor numero de compras, visitas y articulos distintos comprados es el Viernes</p>
+
+```{r,echo=FALSE}
+AUX1<-train_set%>%group_by(Weekday)%>%summarise(Compras=n(),Visitas=n_distinct(VisitNumber),Articulos=n_distinct(Upc))%>%arrange(Weekday)
+AUX1$Compras<-prettyNum(AUX1$Compras,big.mark = ",",scientific=FALSE,digits=0)
+AUX1$Visitas<-prettyNum(AUX1$Visitas,big.mark = ",",scientific=FALSE,digits=0)
+AUX1$Articulos<-prettyNum(AUX1$Articulos,big.mark = ",",scientific=FALSE,digits=0)
+
+
+knitr::kable(AUX1[,],caption = "Resumen de Actividad por día de la semana",align = c('l','r','r','r'))
+```
+
+
+```{r,echo=FALSE}
+tab_stata_one(train_set,train_set$DepartmentDescription)
+Aux2<-train_set%>%group_by(DepartmentDescription)%>%summarise(Compras=n())%>%arrange(desc(Compras))
+Aux3<-Aux2%>%filter(Aux2$Compras>=41969)
+Aux3$DepartmentDescription<-factor(Aux3$DepartmentDescription,c('GROCERY DRY GOODS','DSD GROCERY','PRODUCE','DAIRY','PERSONAL CARE'))
+```
+
+
+
+
+```{r, echo=FALSE}
+ggplot(data=Aux3, aes(x=DepartmentDescription, y=Compras))+
+  geom_bar(colour="black", stat="identity",fill="blue")+scale_y_continuous(labels = scales::comma)+ ggtitle(expression(atop("Numero de Compras por Tipo de Departamento", atop(italic("Top 5"), ""))))
+```
+
+<p> El ranking de los top 5 Departamentos con mayor numeor de compras es: **Grocery Dry Goods**,**DSD Grocery**,**Produce**,**Dairy**,**Personal Care**
+
+```{r,echo=FALSE}
+AUX4<-train_set%>%group_by(DepartmentDescription)%>%summarise(Compras=n(),Visitas=n_distinct(VisitNumber),Articulos=n_distinct(Upc))%>%filter(Compras>=41969)%>%arrange(desc(Compras))
+AUX4$Compras<-prettyNum(AUX4$Compras,big.mark = ",",scientific=FALSE,digits=0)
+AUX4$Visitas<-prettyNum(AUX4$Visitas,big.mark = ",",scientific=FALSE,digits=0)
+AUX4$Articulos<-prettyNum(AUX4$Articulos,big.mark = ",",scientific=FALSE,digits=0)
+
+
+knitr::kable(AUX4[,],caption = "Resumen de Actividad por tipo de departamento (Top 5)",align = c('l','r','r','r'))
+```
+
+```{r, echo=FALSE}
+Aux5<-train_set%>%group_by(TripType)%>%summarise(Compras=n())%>%filter(Compras>=19468)%>%arrange(desc(Compras))
+ggplot(data=Aux5, aes(x=TripType, y=Compras))+
+  geom_bar(colour="black", stat="identity",fill="blue")+scale_y_continuous(labels = scales::comma)+ ggtitle(expression(atop("Numero de Compras por Tipo de Visita", atop(italic("Top 10"), ""))))
+```
+
+
+<p> El tipo de visita **40** es el que tiene el mayor numero compras. Sin embargo, el tipo de visita **8** es el que tiene el mayor numero de Visitas registradas. Por último, el tipo de visita con el mayor numero de articulos distintos comprados es el **40**</p>
+
+```{r,echo=FALSE}
+Aux6<-train_set%>%group_by(TripType)%>%summarise(Compras=n(),Visitas=n_distinct(VisitNumber),Articulos=n_distinct(Upc))%>%filter(Compras>=19468)%>%arrange(desc(Compras))
+Aux6$Compras<-prettyNum(Aux6$Compras,big.mark = ",",scientific=FALSE,digits=0)
+Aux6$Visitas<-prettyNum(Aux6$Visitas,big.mark = ",",scientific=FALSE,digits=0)
+Aux6$Articulos<-prettyNum(Aux6$Articulos,big.mark = ",",scientific=FALSE,digits=0)
+
+
+knitr::kable(Aux6[,],caption = "Resumen de Actividad por tipo de visita (Top 5)",align = c('l','r','r','r'))
+```
+```{r, echo=FALSE}
+Aux7<-train_set%>%group_by(FinelineNumber)%>%summarise(Compras=n())%>%filter(Compras>=2723)%>%arrange(desc(Compras))
+Aux7$FinelineNumber<-factor(Aux7$FinelineNumber,c('5501','1508','135','808','NA','0','9546','1407','4606','115'))
+
+```
+
+
+
+```{r,echo=FALSE}
+ggplot(data=Aux7, aes(x=FinelineNumber, y=Compras))+
+  geom_bar(colour="black", stat="identity",fill="blue")+scale_y_continuous(labels = scales::comma)+ ggtitle(expression(atop("Numero de Compras por Tipo de Artículo (clasificacion de artículos Walmart)", atop(italic("Top 10"), ""))))
+```
+
+
+<p>Walmart cuenta con una clasificacion más especifica para cada producto</p>
