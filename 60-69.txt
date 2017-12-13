@@ -1,0 +1,70 @@
+############
+60. ¿Se crean los modelos finales con cross-validation? Si/no y por qué.
+
+############
+61. ¿En qué consiste el leakage? Da un ejemplo
+
+No utilizar validation set en hyperparameter tunning.
+
+(Data Leakage is the creation of unexpected additional information in the training data, allowing a model or machine learning algorithm to make unrealistically good predictions.)
+
+############
+62. Da un ejemplo de cómo Caret puede ayudar en la selección de modelos
+
+############
+63. ¿Cuál es la filosofía UNIX para procesamiento de información?
+
+############
+64. Principales comando en UNIX
+
+pwd - print working directory
+ls - list
+man - manual
+> - redirect
+cd - change directory
+mkdir - make directory
+rmdir - remove directory
+
+############
+65. ¿En que se parecen los “|” en UNIX con “%>%” en R
+
+Llamadas a funciones de tal forma que se vea con un pipeline de ejecuciones.
+
+############
+66. ¿Qué diferencia hay entre una contenedor y una imagen en docker?
+
+La imagen contiene las características de la máquina virtual.
+Un ejecutable aislado y autónomo que contiene todo lo necesario para correr algún _software_, como código, librerías, binarios, variables de ambiente, etc. El _template_ de un contenedor.
+
+Un contenedor es una instancia de una imagen. Una imagen una vez ejecutada resulta en un contenedor que corre la pieza de _software_ especificada en ella. Un contenedor está completamente aislado del anfitrión y de otros contenedores, accediendo sólo lo que se le comparte explícitamente.
+
+############
+67. ¿Para qué sirve docker?
+
+- En desarrollo e investigación
+
+* Instalar y configurar es costoso
+* Manejar dependencias es doloroso
+* Un equipo puede tener diferencias vastas en sus ambientes de trabajo
+* "En mi máquina corre"
+* A pesar de herramientas como `virtualenv` y `packrat`, diferencias a nivel de sistema pueden causar dolores de cabeza
+* Diferencias en versiones de herramientas y tecnologías pueden causar problemas de compatibilidad
+
+- En producción
+
+* Compartir y distribuir configuraciones y dependencias es difícil
+* "En mi máquina corre"
+* El ambiente de desarrollo o investigación nunca es exactamente igual al de producción
+* Distribuir cambios puede ser extremadamente doloroso
+
+Docker nos permite resolver estos problemas, pues provee una manera sencilla y portable de **construir y compartir ambientes completos**, además de que corre nativamente en cualquier servidor con Linux (y algunos con Windows), permitiendo su **completo acceso a los recursos del sistema**. Es posible también crear una red virtual para instancias de Docker, permitiendo aislar y escalar fácilmente cada parte de la infraestructura.
+
+Además, a través de DockerHub, Docker provee la capacidad de utilizar ambientes creados por la comunidad, si la herramienta o tecnología es relativamente popular, seguramente existe en DockerHub.
+
+Por último, orquestadores de contenedores como Kubernetes y Swarm nos permiten **manejar y escalar una infraestructura** basada en Docker.
+
+###########
+68.   ¿Cómo deep learning puede apoyar en el proceso de ingeniería de características?
+
+###########
+69.   ¿Qué es lo que realizan las capas intermedias de las redes neuronales?
