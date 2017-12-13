@@ -37,7 +37,8 @@ Es el proceso de determinar que variables productivas contribuyen mejor al poder
   o	etc.
 
 41. ¿Cómo puedo crear una variable binaria a partir de una continua? ¿Cómo decido el punto de corte?
-Se trata de encontrar el cut-off que maximize tu variable dependiente. Muy parecido a lo que hacen algoritmos como el J48 (en su versión comercial se conoce como C5).
+Se trata de encontrar el cut-off que maximize tu variable dependiente. Buscar el valor que divida los datos como me interesan con datos continuos y de ahi puedo hacer feature engineer.
+Muy parecido a lo que hacen algoritmos como el J48 (en su versión comercial se conoce como C5).
 Hay un paquete de R que lo implementa: C50. Numérica (\to) bin
 
 42. ¿Para qué sirve la selección de características?
